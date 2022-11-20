@@ -6,11 +6,23 @@ import {Types, AptosClient, AptosAccount} from 'aptos';
 const client = new AptosClient('https://fullnode.testnet.aptoslabs.com/v1');
 
 /** Convert string to hex-encoded utf-8 bytes. */
-function stringToHex(text: string) {
-    const encoder = new TextEncoder();
-    const encoded = encoder.encode(text);
-    return Array.from(encoded, (i) => i.toString(16).padStart(2, "0")).join("");
+function hexStringToUint8Array(hexString: string){
+    if (hexString.length % 2 !== 0){
+        throw "Invalid hexString";
+    }
+    var arrayBuffer = new Uint8Array(hexString.length / 2);
+
+    for (var i = 0; i < hexString.length; i += 2) {
+        var byteValue = parseInt(hexString.substr(i, 2), 16);
+        if (isNaN(byteValue)){
+            throw "Invalid hexString";
+        }
+        arrayBuffer[i/2] = byteValue;
+    }
+
+    return arrayBuffer;
 }
+
 
 function App() {
     const [receiverAddr, setReceiverAddr] = useState("");
@@ -51,9 +63,6 @@ function App() {
         client.getAccountModules(address).then(setModules);
     }, [address]);
 
-    // console.log("modules", modules);
-    console.log("resources", resources);
-
     const hasModule = modules.some((m) => m.abi?.name === 'message');
 
     // Call set_message with the textarea value on submit.
@@ -75,28 +84,11 @@ function App() {
 
     const _address = address?.replace("0x0", "0x");
     const resourceType = `${_address}::message::MessageHolder`;
-    const resource = resources.find((r) => r.type === resourceType);
+    // const resource = resources.find((r) => r.type === resourceType);
 
     const [newStopTime, setNewStopTime] = useState('20000');
     const [coinIdExt, setCoinIdExt] = useState('0');
     const [streamId, setStreamId] = useState('0');
-
-    function hexStringToUint8Array(hexString: string){
-        if (hexString.length % 2 !== 0){
-            throw "Invalid hexString";
-        }
-        var arrayBuffer = new Uint8Array(hexString.length / 2);
-
-        for (var i = 0; i < hexString.length; i += 2) {
-            var byteValue = parseInt(hexString.substr(i, 2), 16);
-            if (isNaN(byteValue)){
-                throw "Invalid hexString";
-            }
-            arrayBuffer[i/2] = byteValue;
-        }
-
-        return arrayBuffer;
-    }
 
     let hex = localStorage.getItem('testObject-demo-web') || "0x1234";
     hex = hex.replace("0x", "")
@@ -104,6 +96,35 @@ function App() {
         .trim();
     const pkHex = hexStringToUint8Array(hex);
     const account1 = new AptosAccount(pkHex);
+
+    // console.log("modules", modules);
+    if(resources.length > 0 && !!resources[16].data) {
+        // console.log("resources", resources);
+        // console.log("resources--data", JSON.stringify(resources[16]));
+        console.log("resources--data", resources[16].data);
+        const moveData = JSON.parse(JSON.stringify(resources[16].data));
+        console.log("move data object", moveData.coin_configs[0].store);
+        const streamHandle = moveData.input_stream.handle;
+
+        const tbReqStreamInd = {
+            key_type: "address",
+            value_type: `vector<${address}::streampay::StreamIndex>`,
+            key: address,
+        };
+        console.log("streamHandle", streamHandle);
+        console.log("getTokenTableItemRequest", tbReqStreamInd);
+        // client.getTableItem(streamHandle, tbReqStreamInd).then(console.log).catch(console.error);
+
+        const hdStreamInfo = moveData.coin_configs[0].store.handle;
+        const tbReqStreamInfo = {
+            key_type: "u64",
+            value_type: `vector<${address}::streampay::StreamInfo>`,
+            key: "17",
+        };
+        console.log("hdStreamInfo", hdStreamInfo);
+        console.log("tbReqStreamInfo", tbReqStreamInfo);
+        client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(console.log).catch(console.error);
+    }
 
     const handleSubmitExtend = async (e: any) => {
         e.preventDefault();
