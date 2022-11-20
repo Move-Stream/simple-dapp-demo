@@ -2,6 +2,8 @@ import React, {useState} from 'react';
 import './App.css';
 import {Types, AptosClient, AptosAccount} from 'aptos';
 
+const G_CONFIG = "::streampay::GlobalConfig";
+
 // Create an AptosClient to interact with testnet.
 const client = new AptosClient('https://fullnode.testnet.aptoslabs.com/v1');
 
@@ -37,6 +39,7 @@ function App() {
         window.aptos.connect().then(() => {
             window.aptos.account().then((data : {address: string}) => {
                 setAddress(data.address);
+                // setAddress("0xb5add92f1f60ae106e8ac7712fd71d550c36ed3bc33fa6004fe4a1d1bcc91bb5");
                 setReceiverAddr(data.address);
             });
         });
@@ -63,8 +66,6 @@ function App() {
         client.getAccountModules(address).then(setModules);
     }, [address]);
 
-    const hasModule = modules.some((m) => m.abi?.name === 'message');
-
     // Call set_message with the textarea value on submit.
     const handleSubmit = async (e: any) => {
         e.preventDefault();
@@ -74,7 +75,7 @@ function App() {
             arguments: [receiverAddr, amount, startTime, stopTime, coinId],
             type_arguments: ["0x1::aptos_coin::AptosCoin"],
         };
-        console.log(transaction);
+        console.log("transaction payload", transaction);
         try {
             await window.aptos.signAndSubmitTransaction(transaction);
             console.log("Stream Created!")
@@ -82,28 +83,24 @@ function App() {
         }
     };
 
-    const _address = address?.replace("0x0", "0x");
-    const resourceType = `${_address}::message::MessageHolder`;
-    // const resource = resources.find((r) => r.type === resourceType);
-
     const [newStopTime, setNewStopTime] = useState('20000');
     const [coinIdExt, setCoinIdExt] = useState('0');
     const [streamId, setStreamId] = useState('0');
 
-    let hex = localStorage.getItem('testObject-demo-web') || "0x1234";
-    hex = hex.replace("0x", "")
+    // Todo: Sign tx by wallet plugin instead of local private key
+    const hex = process.env.REACT_APP_TMP_KEY!
+        .replace("0x", "")
         .replace("0X", "")
         .trim();
     const pkHex = hexStringToUint8Array(hex);
     const account1 = new AptosAccount(pkHex);
 
-    // console.log("modules", modules);
-    if(resources.length > 0 && !!resources[16].data) {
+    // query table from handle in resources
+    if(resources.length > 0) {
+        // console.log("modules", modules);
         // console.log("resources", resources);
-        // console.log("resources--data", JSON.stringify(resources[16]));
-        console.log("resources--data", resources[16].data);
-        const moveData = JSON.parse(JSON.stringify(resources[16].data));
-        console.log("move data object", moveData.coin_configs[0].store);
+        const resGlConf = resources.find((r) => r.type.includes(G_CONFIG))!;
+        const moveData = JSON.parse(JSON.stringify(resGlConf.data!));
         const streamHandle = moveData.input_stream.handle;
 
         const tbReqStreamInd = {
@@ -111,19 +108,19 @@ function App() {
             value_type: `vector<${address}::streampay::StreamIndex>`,
             key: address,
         };
-        console.log("streamHandle", streamHandle);
-        console.log("getTokenTableItemRequest", tbReqStreamInd);
-        // client.getTableItem(streamHandle, tbReqStreamInd).then(console.log).catch(console.error);
+        // console.log("streamHandle", streamHandle);
+        // console.log("getTokenTableItemRequest", tbReqStreamInd);
+        client.getTableItem(streamHandle, tbReqStreamInd).then(console.log).catch(console.error);
 
         const hdStreamInfo = moveData.coin_configs[0].store.handle;
         const tbReqStreamInfo = {
             key_type: "u64",
             value_type: `vector<${address}::streampay::StreamInfo>`,
-            key: "17",
+            key: "1",
         };
-        console.log("hdStreamInfo", hdStreamInfo);
-        console.log("tbReqStreamInfo", tbReqStreamInfo);
-        client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(console.log).catch(console.error);
+        // console.log("hdStreamInfo", hdStreamInfo);
+        // console.log("tbReqStreamInfo", tbReqStreamInfo);
+        // client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(console.log).catch(console.error);
     }
 
     const handleSubmitExtend = async (e: any) => {
@@ -131,11 +128,10 @@ function App() {
         const transaction = {
             type: "entry_function_payload",
             function: `${address}::streampay::extend`,
-            arguments: [newStopTime, coinIdExt, streamId],
-            // arguments: ["90000", "0", "0"],
+            arguments: [newStopTime, coinIdExt, streamId],  // arguments: ["90000", "0", "0"],
             type_arguments: ["0x1::aptos_coin::AptosCoin"],
         };
-        console.log(transaction);
+        console.log("transaction payload", transaction);
         try {
             let txnRequest = await client.generateTransaction(account1.address(), transaction);
             let signedTxn = await client.signTransaction(account1, txnRequest);
@@ -157,9 +153,7 @@ function App() {
             arguments: [coinIdWdr, streamIdWdr],
             type_arguments: ["0x1::aptos_coin::AptosCoin"],
         };
-
-        console.log(transaction);
-
+        console.log("transaction payload", transaction);
         try {
             let txnRequest = await client.generateTransaction(account1.address(), transaction);
             let signedTxn = await client.signTransaction(account1, txnRequest);
@@ -196,15 +190,12 @@ function App() {
                 <label>New Stop Time</label><br/>
                 <input type="text" value={newStopTime}
                        onChange={(e) => setNewStopTime(e.target.value)}/><br/>
-
                 <label>Coin Id</label><br/>
                 <input type="text" value={coinIdExt}
                        onChange={(e) => setCoinIdExt( e.target.value)}/><br/>
-
                 <label>Stream Id</label><br/>
                 <input type="text" value={streamId}
                        onChange={(e) => setStreamId(e.target.value)}/><br/>
-
                 <input type="submit" value="Submit"/>
             </form>
 
@@ -214,11 +205,9 @@ function App() {
                 <label>Coin Id</label><br/>
                 <input type="text" value={coinIdWdr}
                        onChange={(e) => setCoinIdWdr( e.target.value)}/><br/>
-
                 <label>Stream Id</label><br/>
                 <input type="text" value={streamIdWdr}
                        onChange={(e) => setStreamIdWdr(e.target.value)}/><br/>
-
                 <input type="submit" value="Submit"/>
             </form>
 
