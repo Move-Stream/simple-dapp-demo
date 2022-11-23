@@ -32,15 +32,23 @@ function App() {
     const [startTime, setStartTime] = useState('1000');
     const [stopTime, setStopTime] = useState('10000');
     const [coinId, setCoinId] = useState('0');
+    const [coins, setCoins] = useState<string[]>([]);
 
     // Retrieve aptos.account on initial render and store it.
-    const [address, setAddress] = React.useState<string>("0x");
+    const [address, setAddress] = React.useState<string>("");
     React.useEffect( () => {
         window.aptos.connect().then(() => {
             window.aptos.account().then((data : {address: string}) => {
                 setAddress(data.address);
                 // setAddress("0xb5add92f1f60ae106e8ac7712fd71d550c36ed3bc33fa6004fe4a1d1bcc91bb5");
                 setReceiverAddr(data.address);
+
+                setCoins(["0x1::aptos_coin::AptosCoin",
+                    `${data.address}::Coins::XBTC`,
+                    `${data.address}::Coins::XETH`,
+                    `${data.address}::Coins::XDOT`,
+                    `${data.address}::Coins::TestCoin`
+                ]);
             });
         });
     }, []);
@@ -62,7 +70,7 @@ function App() {
     // Check for the module; show publish instructions if not present.
     const [modules, setModules] = React.useState<Types.MoveModuleBytecode[]>([]);
     React.useEffect(() => {
-        if (!address) return;
+        if (!address && !Object.keys(coins).length) return;
         client.getAccountModules(address).then(setModules);
     }, [address]);
 
@@ -73,7 +81,7 @@ function App() {
             type: "entry_function_payload",
             function: `${address}::streampay::create`,
             arguments: [receiverAddr, amount, startTime, stopTime, coinId],
-            type_arguments: ["0x1::aptos_coin::AptosCoin"],
+            type_arguments: [coins[Number(coinId)]],
         };
         console.log("transaction payload", transaction);
         try {
@@ -85,7 +93,7 @@ function App() {
 
     const [newStopTime, setNewStopTime] = useState('20000');
     const [coinIdExt, setCoinIdExt] = useState('0');
-    const [streamId, setStreamId] = useState('0');
+    const [streamId, setStreamId] = useState('1');
 
     // Todo: Sign tx by wallet plugin instead of local private key
     const hex = process.env.REACT_APP_TMP_KEY!
@@ -110,17 +118,17 @@ function App() {
         };
         // console.log("streamHandle", streamHandle);
         // console.log("getTokenTableItemRequest", tbReqStreamInd);
-        client.getTableItem(streamHandle, tbReqStreamInd).then(console.log).catch(console.error);
+        client.getTableItem(streamHandle, tbReqStreamInd).then(x => console.log("stream index", x)).catch(console.error);
 
         const hdStreamInfo = moveData.coin_configs[0].store.handle;
         const tbReqStreamInfo = {
             key_type: "u64",
-            value_type: `vector<${address}::streampay::StreamInfo>`,
+            value_type: `${address}::streampay::StreamInfo`,
             key: "1",
         };
         // console.log("hdStreamInfo", hdStreamInfo);
         // console.log("tbReqStreamInfo", tbReqStreamInfo);
-        // client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(console.log).catch(console.error);
+        client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(x => console.log("stream info", x)).catch(console.error);
     }
 
     const handleSubmitExtend = async (e: any) => {
@@ -143,7 +151,7 @@ function App() {
     };
 
     const [coinIdWdr, setCoinIdWdr] = useState('0');
-    const [streamIdWdr, setStreamIdWdr] = useState('0');
+    const [streamIdWdr, setStreamIdWdr] = useState('1');
 
     const handleSubmitWithdraw = async (e: any) => {
         e.preventDefault();
