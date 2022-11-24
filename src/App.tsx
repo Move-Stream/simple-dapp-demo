@@ -55,7 +55,9 @@ type StreamInfo = {
     last_withdraw_time: string,
     deposit_amount: string,
     remaining_balance: string,
-
+    transferred: string,
+    withdrawable: string,
+    to_transfer: string,
 }
 
 function App() {
@@ -185,9 +187,13 @@ function App() {
                     key: stream_id.toString(),
                 };
 
-                await client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(x => {
+                const {ledger_timestamp} = await client.getLedgerInfo();
+                await client.getTableItem(hdStreamInfo, tbReqStreamInfo).then( (x: StreamInfo) => {
                     // console.log("stream info", x);
-                    _rows.push({coin_id: coin_id.toString(), stream_id: stream_id.toString(),  ...x});
+                    const transferred = ((BigInt(ledger_timestamp) - BigInt(x.start_time)) * BigInt(x.rate_per_second)).toString();
+                    const withdrawable = ((BigInt(x.last_withdraw_time) - BigInt(x.start_time)) * BigInt(x.rate_per_second)).toString();
+                    const to_transfer = ((BigInt(x.stop_time) - BigInt(ledger_timestamp)) * BigInt(x.rate_per_second)).toString();
+                    _rows.push({...x, coin_id: coin_id.toString(), stream_id: stream_id.toString(), transferred, withdrawable, to_transfer});
                 }).catch(console.error);
             }
             console.log("_rows", _rows);
@@ -210,9 +216,13 @@ function App() {
                     key: stream_id.toString(),
                 };
 
+                const {ledger_timestamp} = await client.getLedgerInfo();
                 await client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(x => {
                     // console.log("stream info", x);
-                    _rows.push({coin_id: coin_id.toString(), stream_id: stream_id.toString(),  ...x});
+                    const transferred = ((BigInt(ledger_timestamp) - BigInt(x.start_time)) * BigInt(x.rate_per_second)).toString();
+                    const withdrawable = ((BigInt(x.last_withdraw_time) - BigInt(x.start_time)) * BigInt(x.rate_per_second)).toString();
+                    const to_transfer = ((BigInt(x.stop_time) - BigInt(ledger_timestamp)) * BigInt(x.rate_per_second)).toString();
+                    _rows.push({...x, coin_id: coin_id.toString(), stream_id: stream_id.toString(), transferred, withdrawable, to_transfer});
                 }).catch(console.error);
             }
             console.log("out _rows", _rows);
@@ -242,6 +252,9 @@ function App() {
                             <TableCell align="right">last_withdraw_time</TableCell>
                             <TableCell align="right">deposit_amount</TableCell>
                             <TableCell align="right">remaining_balance</TableCell>
+                            <TableCell align="right">transferred</TableCell>
+                            <TableCell align="right">withdrawable</TableCell>
+                            <TableCell align="right">to_transfer</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -262,6 +275,9 @@ function App() {
                                 <TableCell align="right">{row.last_withdraw_time}</TableCell>
                                 <TableCell align="right">{row.deposit_amount}</TableCell>
                                 <TableCell align="right">{row.remaining_balance}</TableCell>
+                                <TableCell align="right">{row.transferred}</TableCell>
+                                <TableCell align="right">{row.withdrawable}</TableCell>
+                                <TableCell align="right">{row.to_transfer}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -283,6 +299,9 @@ function App() {
                             <TableCell align="right">last_withdraw_time</TableCell>
                             <TableCell align="right">deposit_amount</TableCell>
                             <TableCell align="right">remaining_balance</TableCell>
+                            <TableCell align="right">transferred</TableCell>
+                            <TableCell align="right">withdrawable</TableCell>
+                            <TableCell align="right">to_transfer</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -303,6 +322,9 @@ function App() {
                                 <TableCell align="right">{row.last_withdraw_time}</TableCell>
                                 <TableCell align="right">{row.deposit_amount}</TableCell>
                                 <TableCell align="right">{row.remaining_balance}</TableCell>
+                                <TableCell align="right">{row.transferred}</TableCell>
+                                <TableCell align="right">{row.withdrawable}</TableCell>
+                                <TableCell align="right">{row.to_transfer}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
