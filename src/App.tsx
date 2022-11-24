@@ -10,6 +10,16 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 
+import dayjs, { Dayjs } from 'dayjs';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
+import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
+
 const G_CONFIG = "::streampay::GlobalConfig";
 
 // Create an AptosClient to interact with testnet.
@@ -50,7 +60,8 @@ type StreamInfo = {
 function App() {
     const [coins, setCoins] = useState<string[]>([]);
     const [address, setAddress] = React.useState<string>("");
-    const [rows, setRows] = useState<StreamInfo[]>([]);
+    const [inputRows, setInputRows] = useState<StreamInfo[]>([]);
+    const [outputRows, setOutputRows] = useState<StreamInfo[]>([]);
 
     React.useEffect( () => {
         window.aptos.connect().then(() => {
@@ -153,7 +164,7 @@ function App() {
         const resGlConf = resources.find((r) => r.type.includes(G_CONFIG))!;
         const moveData = JSON.parse(JSON.stringify(resGlConf.data!));
 
-        const streamHandle = moveData.input_stream.handle;
+        const inStreamHandle = moveData.input_stream.handle;
         const tbReqStreamInd = {
             key_type: "address",
             value_type: `vector<${address}::streampay::StreamIndex>`,
@@ -161,7 +172,7 @@ function App() {
         };
 
         // console.log("streamHandle", streamHandle);
-        client.getTableItem(streamHandle, tbReqStreamInd).then(async streamIndice => {
+        client.getTableItem(inStreamHandle, tbReqStreamInd).then(async streamIndice => {
             console.log("stream index", streamIndice);
             let _rows: StreamInfo[] = [];
             for (const ind of streamIndice) {
@@ -182,11 +193,37 @@ function App() {
                 }).catch(console.error);
             }
             console.log("_rows", _rows);
-            setRows(_rows);
+            setInputRows(_rows);
         })
         .catch(console.error);
 
-    }, []);
+        const outStreamHandle = moveData.output_stream.handle;
+        client.getTableItem(outStreamHandle, tbReqStreamInd).then(async streamIndice => {
+            console.log("output stream index", streamIndice);
+            let _rows: StreamInfo[] = [];
+            for (const ind of streamIndice) {
+                console.log("output stream index", ind);
+                const {coin_id, stream_id} = ind;
+
+                const hdStreamInfo = moveData.coin_configs[coin_id].store.handle;
+                const tbReqStreamInfo = {
+                    key_type: "u64",
+                    value_type: `${address}::streampay::StreamInfo`,
+                    key: stream_id.toString(),
+                };
+
+                // console.log("hdStreamInfo", hdStreamInfo);
+                await client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(x => {
+                    // console.log("stream info", x);
+                    _rows.push({coin_id: coin_id.toString(), stream_id: stream_id.toString(),  ...x});
+                }).catch(console.error);
+            }
+            console.log("out _rows", _rows);
+            setOutputRows(_rows);
+        })
+        .catch(console.error);
+
+    }, [resources]);
 
     return (
         <div className="App">
@@ -194,7 +231,6 @@ function App() {
             <p><code>address:{ address }</code></p>
 
             <p><code>Input Stream</code></p>
-
             <TableContainer component={Paper}>
                 <Table sx={{ minWidth: 650 }} aria-label="simple table">
                     <TableHead>
@@ -212,7 +248,48 @@ function App() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {rows.map((row) => (
+                        {inputRows.map((row) => (
+                            <TableRow
+                                key={row.coin_id + row.stream_id}
+                                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                            >
+                                <TableCell component="th" scope="row">
+                                    {row.coin_id}
+                                </TableCell>
+                                <TableCell align="right">{row.stream_id}</TableCell>
+                                <TableCell align="right">{row.sender}</TableCell>
+                                <TableCell align="right">{row.recipient}</TableCell>
+                                <TableCell align="right">{row.rate_per_second}</TableCell>
+                                <TableCell align="right">{row.start_time}</TableCell>
+                                <TableCell align="right">{row.stop_time}</TableCell>
+                                <TableCell align="right">{row.last_withdraw_time}</TableCell>
+                                <TableCell align="right">{row.deposit_amount}</TableCell>
+                                <TableCell align="right">{row.remaining_balance}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+
+            <p><code>Output Stream</code></p>
+            <TableContainer component={Paper}>
+                <Table sx={{ minWidth: 650 }} aria-label="simple table">
+                    <TableHead>
+                        <TableRow>
+                            <TableCell align="right">coin_id</TableCell>
+                            <TableCell align="right">stream_id</TableCell>
+                            <TableCell align="right">sender</TableCell>
+                            <TableCell align="right">recipient</TableCell>
+                            <TableCell align="right">rate_per_second</TableCell>
+                            <TableCell align="right">start_time</TableCell>
+                            <TableCell align="right">stop_time</TableCell>
+                            <TableCell align="right">last_withdraw_time</TableCell>
+                            <TableCell align="right">deposit_amount</TableCell>
+                            <TableCell align="right">remaining_balance</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {outputRows.map((row) => (
                             <TableRow
                                 key={row.coin_id + row.stream_id}
                                 sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
