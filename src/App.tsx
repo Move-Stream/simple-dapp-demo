@@ -21,7 +21,7 @@ import Paper from '@mui/material/Paper';
 // import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
 
 const G_CONFIG = "::streampay::GlobalConfig";
-const CONTRACT_CREATOR = process.env.CONTRACT_CREATOR!;
+const CONTRACT_CREATOR = process.env.REACT_APP_CONTRACT_CREATOR!;
 
 // Create an AptosClient to interact with testnet.
 const client = new AptosClient('https://fullnode.testnet.aptoslabs.com/v1');
@@ -89,15 +89,15 @@ function App() {
 
     const [resources, setResources] = React.useState<Types.MoveResource[]>([]);
     React.useEffect(() => {
-        if (!address) return;
-        client.getAccountResources(address).then(setResources);
-    }, [address]);
+        if (!coins.length) return;
+        client.getAccountResources(CONTRACT_CREATOR).then(setResources);
+    }, [coins]);
 
     const [modules, setModules] = React.useState<Types.MoveModuleBytecode[]>([]);
     React.useEffect(() => {
-        if (!address && !Object.keys(coins).length) return;
-        client.getAccountModules(address).then(setModules);
-    }, [address]);
+        if (!coins.length) return;
+        client.getAccountModules(CONTRACT_CREATOR).then(setModules);
+    }, [coins]);
 
     const [receiverAddr, setReceiverAddr] = useState("");
     const [amount, setAmount] = useState("10000");
@@ -175,7 +175,7 @@ function App() {
             console.log("stream index", streamIndice);
             let _rows: StreamInfo[] = [];
             for (const ind of streamIndice) {
-                console.log("stream index", ind);
+                // console.log("stream index", ind);
                 const {coin_id, stream_id} = ind;
 
                 const hdStreamInfo = moveData.coin_configs[coin_id].store.handle;
@@ -200,7 +200,7 @@ function App() {
             console.log("output stream index", streamIndice);
             let _rows: StreamInfo[] = [];
             for (const ind of streamIndice) {
-                console.log("output stream index", ind);
+                // console.log("output stream index", ind);
                 const {coin_id, stream_id} = ind;
 
                 const hdStreamInfo = moveData.coin_configs[coin_id].store.handle;
@@ -225,7 +225,7 @@ function App() {
     return (
         <div className="App">
 
-            <p><code>address:{ address }</code></p>
+            <p><code>user address:{ address }</code></p>
 
             <p><code>Input Stream</code></p>
             <TableContainer component={Paper}>
