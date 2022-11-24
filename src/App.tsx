@@ -2,6 +2,14 @@ import React, {useState} from 'react';
 import './App.css';
 import {Types, AptosClient, AptosAccount} from 'aptos';
 
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+
 const G_CONFIG = "::streampay::GlobalConfig";
 
 // Create an AptosClient to interact with testnet.
@@ -25,24 +33,31 @@ function hexStringToUint8Array(hexString: string){
     return arrayBuffer;
 }
 
+type StreamInfo = {
+    coin_id: string,
+    stream_id: string,
+    sender: string,
+    recipient: string,
+    rate_per_second: string,
+    start_time: string,
+    stop_time: string,
+    last_withdraw_time: string,
+    deposit_amount: string,
+    remaining_balance: string,
+
+}
 
 function App() {
-    const [receiverAddr, setReceiverAddr] = useState("");
-    const [amount, setAmount] = useState("10000");
-    const [startTime, setStartTime] = useState('1000');
-    const [stopTime, setStopTime] = useState('10000');
-    const [coinId, setCoinId] = useState('0');
     const [coins, setCoins] = useState<string[]>([]);
-
-    // Retrieve aptos.account on initial render and store it.
     const [address, setAddress] = React.useState<string>("");
+    const [rows, setRows] = useState<StreamInfo[]>([]);
+
     React.useEffect( () => {
         window.aptos.connect().then(() => {
             window.aptos.account().then((data : {address: string}) => {
                 setAddress(data.address);
                 // setAddress("0xb5add92f1f60ae106e8ac7712fd71d550c36ed3bc33fa6004fe4a1d1bcc91bb5");
                 setReceiverAddr(data.address);
-
                 setCoins(["0x1::aptos_coin::AptosCoin",
                     `${data.address}::Coins::XBTC`,
                     `${data.address}::Coins::XETH`,
@@ -54,7 +69,6 @@ function App() {
     }, []);
 
 
-    // Use the AptosClient to retrieve details about the account.
     const [account, setAccount] = React.useState<Types.AccountData | null>(null);
     React.useEffect(() => {
         if (!address) return;
@@ -67,14 +81,17 @@ function App() {
         client.getAccountResources(address).then(setResources);
     }, [address]);
 
-    // Check for the module; show publish instructions if not present.
     const [modules, setModules] = React.useState<Types.MoveModuleBytecode[]>([]);
     React.useEffect(() => {
         if (!address && !Object.keys(coins).length) return;
         client.getAccountModules(address).then(setModules);
     }, [address]);
 
-    // Call set_message with the textarea value on submit.
+    const [receiverAddr, setReceiverAddr] = useState("");
+    const [amount, setAmount] = useState("10000");
+    const [startTime, setStartTime] = useState('1000');
+    const [stopTime, setStopTime] = useState('10000');
+    const [coinId, setCoinId] = useState('0');
     const handleSubmit = async (e: any) => {
         e.preventDefault();
         const transaction = {
@@ -94,57 +111,17 @@ function App() {
     const [newStopTime, setNewStopTime] = useState('20000');
     const [coinIdExt, setCoinIdExt] = useState('0');
     const [streamId, setStreamId] = useState('1');
-
-    // Todo: Sign tx by wallet plugin instead of local private key
-    const hex = process.env.REACT_APP_TMP_KEY!
-        .replace("0x", "")
-        .replace("0X", "")
-        .trim();
-    const pkHex = hexStringToUint8Array(hex);
-    const account1 = new AptosAccount(pkHex);
-
-    // query table from handle in resources
-    if(resources.length > 0) {
-        // console.log("modules", modules);
-        // console.log("resources", resources);
-        const resGlConf = resources.find((r) => r.type.includes(G_CONFIG))!;
-        const moveData = JSON.parse(JSON.stringify(resGlConf.data!));
-        const streamHandle = moveData.input_stream.handle;
-
-        const tbReqStreamInd = {
-            key_type: "address",
-            value_type: `vector<${address}::streampay::StreamIndex>`,
-            key: address,
-        };
-        // console.log("streamHandle", streamHandle);
-        // console.log("getTokenTableItemRequest", tbReqStreamInd);
-        client.getTableItem(streamHandle, tbReqStreamInd).then(x => console.log("stream index", x)).catch(console.error);
-
-        const hdStreamInfo = moveData.coin_configs[0].store.handle;
-        const tbReqStreamInfo = {
-            key_type: "u64",
-            value_type: `${address}::streampay::StreamInfo`,
-            key: "1",
-        };
-        // console.log("hdStreamInfo", hdStreamInfo);
-        // console.log("tbReqStreamInfo", tbReqStreamInfo);
-        client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(x => console.log("stream info", x)).catch(console.error);
-    }
-
     const handleSubmitExtend = async (e: any) => {
         e.preventDefault();
         const transaction = {
             type: "entry_function_payload",
             function: `${address}::streampay::extend`,
-            arguments: [newStopTime, coinIdExt, streamId],  // arguments: ["90000", "0", "0"],
-            type_arguments: ["0x1::aptos_coin::AptosCoin"],
+            arguments: [newStopTime, coinIdExt, streamId],
+            type_arguments: [coins[Number(coinIdExt)]],
         };
         console.log("transaction payload", transaction);
         try {
-            let txnRequest = await client.generateTransaction(account1.address(), transaction);
-            let signedTxn = await client.signTransaction(account1, txnRequest);
-            let transactionRes = await client.submitTransaction(signedTxn);
-            await client.waitForTransaction(transactionRes.hash);
+            await window.aptos.signAndSubmitTransaction(transaction);
             console.log("Stream Extended!")
         } finally {
         }
@@ -152,29 +129,111 @@ function App() {
 
     const [coinIdWdr, setCoinIdWdr] = useState('0');
     const [streamIdWdr, setStreamIdWdr] = useState('1');
-
     const handleSubmitWithdraw = async (e: any) => {
         e.preventDefault();
         const transaction = {
             type: "entry_function_payload",
             function: `${address}::streampay::withdraw`,
             arguments: [coinIdWdr, streamIdWdr],
-            type_arguments: ["0x1::aptos_coin::AptosCoin"],
+            type_arguments: [coins[Number(coinIdWdr)]],
         };
         console.log("transaction payload", transaction);
         try {
-            let txnRequest = await client.generateTransaction(account1.address(), transaction);
-            let signedTxn = await client.signTransaction(account1, txnRequest);
-            let transactionRes = await client.submitTransaction(signedTxn);
-            await client.waitForTransaction(transactionRes.hash);
+            await window.aptos.signAndSubmitTransaction(transaction);
             console.log("Stream Withdrawed!")
         } finally {
         }
     };
 
+    // query table from handle in resources
+    React.useEffect(() => {
+        if (resources.length <= 0) return;
+        // console.log("modules", modules);
+        // console.log("resources", resources);
+        const resGlConf = resources.find((r) => r.type.includes(G_CONFIG))!;
+        const moveData = JSON.parse(JSON.stringify(resGlConf.data!));
+
+        const streamHandle = moveData.input_stream.handle;
+        const tbReqStreamInd = {
+            key_type: "address",
+            value_type: `vector<${address}::streampay::StreamIndex>`,
+            key: address,
+        };
+
+        // console.log("streamHandle", streamHandle);
+        client.getTableItem(streamHandle, tbReqStreamInd).then(async streamIndice => {
+            console.log("stream index", streamIndice);
+            let _rows: StreamInfo[] = [];
+            for (const ind of streamIndice) {
+                console.log("stream index", ind);
+                const {coin_id, stream_id} = ind;
+
+                const hdStreamInfo = moveData.coin_configs[coin_id].store.handle;
+                const tbReqStreamInfo = {
+                    key_type: "u64",
+                    value_type: `${address}::streampay::StreamInfo`,
+                    key: stream_id.toString(),
+                };
+
+                // console.log("hdStreamInfo", hdStreamInfo);
+                await client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(x => {
+                    // console.log("stream info", x);
+                    _rows.push({coin_id: coin_id.toString(), stream_id: stream_id.toString(),  ...x});
+                }).catch(console.error);
+            }
+            console.log("_rows", _rows);
+            setRows(_rows);
+        })
+        .catch(console.error);
+
+    }, []);
+
     return (
         <div className="App">
-            <p><code>"address":{ address }</code></p>
+
+            <p><code>address:{ address }</code></p>
+
+            <p><code>Input Stream</code></p>
+
+            <TableContainer component={Paper}>
+                <Table sx={{ minWidth: 650 }} aria-label="simple table">
+                    <TableHead>
+                        <TableRow>
+                            <TableCell align="right">coin_id</TableCell>
+                            <TableCell align="right">stream_id</TableCell>
+                            <TableCell align="right">sender</TableCell>
+                            <TableCell align="right">recipient</TableCell>
+                            <TableCell align="right">rate_per_second</TableCell>
+                            <TableCell align="right">start_time</TableCell>
+                            <TableCell align="right">stop_time</TableCell>
+                            <TableCell align="right">last_withdraw_time</TableCell>
+                            <TableCell align="right">deposit_amount</TableCell>
+                            <TableCell align="right">remaining_balance</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {rows.map((row) => (
+                            <TableRow
+                                key={row.coin_id + row.stream_id}
+                                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                            >
+                                <TableCell component="th" scope="row">
+                                    {row.coin_id}
+                                </TableCell>
+                                <TableCell align="right">{row.stream_id}</TableCell>
+                                <TableCell align="right">{row.sender}</TableCell>
+                                <TableCell align="right">{row.recipient}</TableCell>
+                                <TableCell align="right">{row.rate_per_second}</TableCell>
+                                <TableCell align="right">{row.start_time}</TableCell>
+                                <TableCell align="right">{row.stop_time}</TableCell>
+                                <TableCell align="right">{row.last_withdraw_time}</TableCell>
+                                <TableCell align="right">{row.deposit_amount}</TableCell>
+                                <TableCell align="right">{row.remaining_balance}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
 
             <p><h3>{ "Create Stream" }</h3></p>
             <form onSubmit={handleSubmit}>
