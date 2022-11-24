@@ -10,17 +10,18 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 
-import dayjs, { Dayjs } from 'dayjs';
-import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { TimePicker } from '@mui/x-date-pickers/TimePicker';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
-import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
+// import dayjs, { Dayjs } from 'dayjs';
+// import Stack from '@mui/material/Stack';
+// import TextField from '@mui/material/TextField';
+// import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+// import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+// import { TimePicker } from '@mui/x-date-pickers/TimePicker';
+// import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+// import { DesktopDatePicker } from '@mui/x-date-pickers/DesktopDatePicker';
+// import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
 
 const G_CONFIG = "::streampay::GlobalConfig";
+const CONTRACT_CREATOR = process.env.CONTRACT_CREATOR!;
 
 // Create an AptosClient to interact with testnet.
 const client = new AptosClient('https://fullnode.testnet.aptoslabs.com/v1');
@@ -30,8 +31,8 @@ function hexStringToUint8Array(hexString: string){
     if (hexString.length % 2 !== 0){
         throw "Invalid hexString";
     }
-    var arrayBuffer = new Uint8Array(hexString.length / 2);
 
+    var arrayBuffer = new Uint8Array(hexString.length / 2);
     for (var i = 0; i < hexString.length; i += 2) {
         var byteValue = parseInt(hexString.substr(i, 2), 16);
         if (isNaN(byteValue)){
@@ -107,7 +108,7 @@ function App() {
         e.preventDefault();
         const transaction = {
             type: "entry_function_payload",
-            function: `${address}::streampay::create`,
+            function: `${CONTRACT_CREATOR}::streampay::create`,
             arguments: [receiverAddr, amount, startTime, stopTime, coinId],
             type_arguments: [coins[Number(coinId)]],
         };
@@ -126,7 +127,7 @@ function App() {
         e.preventDefault();
         const transaction = {
             type: "entry_function_payload",
-            function: `${address}::streampay::extend`,
+            function: `${CONTRACT_CREATOR}::streampay::extend`,
             arguments: [newStopTime, coinIdExt, streamId],
             type_arguments: [coins[Number(coinIdExt)]],
         };
@@ -144,7 +145,7 @@ function App() {
         e.preventDefault();
         const transaction = {
             type: "entry_function_payload",
-            function: `${address}::streampay::withdraw`,
+            function: `${CONTRACT_CREATOR}::streampay::withdraw`,
             arguments: [coinIdWdr, streamIdWdr],
             type_arguments: [coins[Number(coinIdWdr)]],
         };
@@ -159,7 +160,6 @@ function App() {
     // query table from handle in resources
     React.useEffect(() => {
         if (resources.length <= 0) return;
-        // console.log("modules", modules);
         // console.log("resources", resources);
         const resGlConf = resources.find((r) => r.type.includes(G_CONFIG))!;
         const moveData = JSON.parse(JSON.stringify(resGlConf.data!));
@@ -171,7 +171,6 @@ function App() {
             key: address,
         };
 
-        // console.log("streamHandle", streamHandle);
         client.getTableItem(inStreamHandle, tbReqStreamInd).then(async streamIndice => {
             console.log("stream index", streamIndice);
             let _rows: StreamInfo[] = [];
@@ -186,7 +185,6 @@ function App() {
                     key: stream_id.toString(),
                 };
 
-                // console.log("hdStreamInfo", hdStreamInfo);
                 await client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(x => {
                     // console.log("stream info", x);
                     _rows.push({coin_id: coin_id.toString(), stream_id: stream_id.toString(),  ...x});
@@ -212,7 +210,6 @@ function App() {
                     key: stream_id.toString(),
                 };
 
-                // console.log("hdStreamInfo", hdStreamInfo);
                 await client.getTableItem(hdStreamInfo, tbReqStreamInfo).then(x => {
                     // console.log("stream info", x);
                     _rows.push({coin_id: coin_id.toString(), stream_id: stream_id.toString(),  ...x});
